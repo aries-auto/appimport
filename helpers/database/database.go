@@ -29,7 +29,7 @@ func MongoConnectionString() *mgo.DialInfo {
 	return &info
 }
 
-func NewDBConnectionString() string {
+func ConnectionString() string {
 	if addr := os.Getenv("DATABASE_HOST"); addr != "" {
 		proto := os.Getenv("DATABASE_PROTOCOL")
 		user := os.Getenv("DATABASE_USERNAME")

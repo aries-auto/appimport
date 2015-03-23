@@ -1,8 +1,10 @@
 package exterior
 
 import (
+	"database/sql"
 	"encoding/csv"
 	"github.com/aries-auto/appimport/helpers/database"
+	_ "github.com/go-sql-driver/mysql"
 	"gopkg.in/mgo.v2"
 	"os"
 	"strconv"
@@ -20,11 +22,11 @@ type ExteriorInput struct {
 }
 
 type Application struct {
-	Year  int
-	Make  string
-	Model string
-	Style string
-	Part  string
+	Year  int    `bson:"year"`
+	Make  string `bson:"make"`
+	Model string `bson:"model"`
+	Style string `bson:"style"`
+	Part  int    `bson:"part"`
 }
 
 func DoExteriors(filename string) error {
@@ -80,6 +82,19 @@ func ConvertToApplication(e ExteriorInput) ([]Application, error) {
 	var apps []Application
 	shortYears := strings.Split(e.YearRange, "-")
 	var longYear int
+
+	db, err := sql.Open("mysql", database.ConnectionString())
+	if err != nil {
+		return apps, err
+	}
+	defer db.Close()
+
+	stmt, err := db.Prepare("select partID from Part where oldPartNumber = ?")
+	if err != nil {
+		return apps, err
+	}
+	defer stmt.Close()
+
 	for _, shortYear := range shortYears {
 		if utf8.RuneCountInString(shortYear) == 2 {
 			//add 19 or 20
@@ -95,11 +110,23 @@ func ConvertToApplication(e ExteriorInput) ([]Application, error) {
 
 			for _, part := range e.Parts {
 				if part != "" {
+					//is there an old/new part number?
+					var num int
+					part = strings.TrimSpace(part)
+					err = stmt.QueryRow(part).Scan(&num)
+					if err == nil {
+						app.Part = num
+					} else {
+						app.Part, err = strconv.Atoi(part)
+						if err != nil {
+							//non-existent part
+							continue
+						}
+					}
 					app.Make = LowerInitial(e.Make)
 					app.Model = LowerInitial(e.Model)
 					app.Style = e.Style
 					app.Year = longYear
-					app.Part = part
 					apps = append(apps, app)
 				}
 			}
