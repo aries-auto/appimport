@@ -1,12 +1,12 @@
 package importer
 
 import (
-	"database/sql"
-	"encoding/csv"
 	"github.com/aries-auto/appimport/helpers/database"
 	_ "github.com/go-sql-driver/mysql"
 	"gopkg.in/mgo.v2"
-	"log"
+
+	"database/sql"
+	"encoding/csv"
 	"os"
 	"strconv"
 	"strings"
@@ -14,7 +14,7 @@ import (
 	"unicode/utf8"
 )
 
-type ExteriorInput struct {
+type Input struct {
 	Make      string
 	Model     string
 	Style     string
@@ -51,9 +51,9 @@ func DoImport(filename string, collectionName string) error {
 }
 
 //Csv to Struct
-func CaptureCsv(filename string) ([]ExteriorInput, error) {
-	var e ExteriorInput
-	var es []ExteriorInput
+func CaptureCsv(filename string) ([]Input, error) {
+	var e Input
+	var es []Input
 	file, err := os.Open(filename)
 	if err != nil {
 		return es, err
@@ -78,8 +78,8 @@ func CaptureCsv(filename string) ([]ExteriorInput, error) {
 	return es, nil
 }
 
-//Convert ExteriorInput ot Applications array
-func ConvertToApplication(e ExteriorInput) ([]Application, error) {
+//Convert Input ot Applications array
+func ConvertToApplication(e Input) ([]Application, error) {
 	var err error
 	var app Application
 	var apps []Application
@@ -117,16 +117,10 @@ func ConvertToApplication(e ExteriorInput) ([]Application, error) {
 					var num int
 					part = strings.TrimSpace(part)
 					err = stmt.QueryRow(part).Scan(&num)
-					if num == 1 {
-						log.Panic("LLL", num)
-					}
 					if err == nil {
 						app.Part = num
 					} else {
 						app.Part, err = strconv.Atoi(part)
-						if part == "1" {
-							log.Panic(part)
-						}
 						if err != nil {
 							//non-existent part
 							continue
