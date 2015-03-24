@@ -7,8 +7,8 @@ import (
 
 func main() {
 	var err error
-	err = importer.DoImport("csvs/exteriorsCompleteApp.csv", "exteriors")
-	log.Print(err)
+	// err = importer.DoImport("csvs/exteriorsCompleteApp.csv", "exteriors")
+	// log.Print(err)
 
 	err = importer.DoImport("csvs/interiorsWIPfix.csv", "interiors")
 	log.Print(err)

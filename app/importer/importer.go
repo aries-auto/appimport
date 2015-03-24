@@ -6,6 +6,7 @@ import (
 	"github.com/aries-auto/appimport/helpers/database"
 	_ "github.com/go-sql-driver/mysql"
 	"gopkg.in/mgo.v2"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -35,6 +36,7 @@ func DoImport(filename string, collectionName string) error {
 	if err != nil {
 		return err
 	}
+
 	for _, e := range es {
 		apps, err := ConvertToApplication(e)
 		if err != nil {
@@ -58,6 +60,7 @@ func CaptureCsv(filename string) ([]ExteriorInput, error) {
 	}
 
 	reader := csv.NewReader(file)
+	reader.Comma = ';'
 
 	lines, err := reader.ReadAll()
 	if err != nil {
@@ -114,10 +117,16 @@ func ConvertToApplication(e ExteriorInput) ([]Application, error) {
 					var num int
 					part = strings.TrimSpace(part)
 					err = stmt.QueryRow(part).Scan(&num)
+					if num == 1 {
+						log.Panic("LLL", num)
+					}
 					if err == nil {
 						app.Part = num
 					} else {
 						app.Part, err = strconv.Atoi(part)
+						if part == "1" {
+							log.Panic(part)
+						}
 						if err != nil {
 							//non-existent part
 							continue
