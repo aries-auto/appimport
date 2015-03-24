@@ -1,4 +1,4 @@
-package exterior
+package importer
 
 import (
 	"database/sql"
@@ -29,7 +29,7 @@ type Application struct {
 	Part  int    `bson:"part"`
 }
 
-func DoExteriors(filename string) error {
+func DoImport(filename string, collectionName string) error {
 	var applications []Application
 	es, err := CaptureCsv(filename)
 	if err != nil {
@@ -43,7 +43,7 @@ func DoExteriors(filename string) error {
 		applications = append(applications, apps...)
 	}
 	for _, a := range applications {
-		err = IntoDB(a)
+		err = IntoDB(a, collectionName)
 	}
 	return err
 }
@@ -69,7 +69,7 @@ func CaptureCsv(filename string) ([]ExteriorInput, error) {
 		e.Model = line[1]
 		e.Style = line[2]
 		e.YearRange = line[3]
-		e.Parts = line[4:70]
+		e.Parts = line[4:reader.FieldsPerRecord]
 		es = append(es, e)
 	}
 	return es, nil
@@ -109,7 +109,7 @@ func ConvertToApplication(e ExteriorInput) ([]Application, error) {
 			}
 
 			for _, part := range e.Parts {
-				if part != "" {
+				if part != "" && part != "-" && part != "--" {
 					//is there an old/new part number?
 					var num int
 					part = strings.TrimSpace(part)
@@ -137,14 +137,14 @@ func ConvertToApplication(e ExteriorInput) ([]Application, error) {
 }
 
 //Dump into mongo
-func IntoDB(app Application) error {
+func IntoDB(app Application, collectionName string) error {
 	session, err := mgo.DialWithInfo(database.MongoConnectionString())
 	if err != nil {
 		return err
 	}
 	defer session.Close()
 
-	c := session.DB(database.MongoConnectionString().Database).C("exteriors")
+	c := session.DB(database.MongoConnectionString().Database).C(collectionName)
 	err = c.Insert(app)
 	return err
 
