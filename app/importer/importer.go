@@ -1,53 +1,59 @@
 package importer
 
 import (
+	"fmt"
 	"github.com/aries-auto/appimport/helpers/database"
 	_ "github.com/go-sql-driver/mysql"
 	"gopkg.in/mgo.v2"
+	"log"
 
 	"database/sql"
 	"encoding/csv"
 	"os"
-	"strconv"
 	"strings"
-	"unicode"
-	"unicode/utf8"
 )
 
+var VehicleApplications map[string]Application
+var PartConversion map[string]int
+
 type Input struct {
-	Make      string
-	Model     string
-	Style     string
-	YearRange string
-	Parts     []string
+	Year  string
+	Make  string
+	Model string
+	Style string
+	Part  string
 }
 
 type Application struct {
-	Year  int    `bson:"year"`
+	Year  string `bson:"year"`
 	Make  string `bson:"make"`
 	Model string `bson:"model"`
 	Style string `bson:"style"`
-	Part  int    `bson:"part"`
+	Parts []int  `bson:"parts"`
 }
 
 func DoImport(filename string, collectionName string) error {
-	var applications []Application
+	PartConversion = make(map[string]int, 0)
+	VehicleApplications = make(map[string]Application, 0)
+
 	es, err := CaptureCsv(filename)
 	if err != nil {
 		return err
 	}
 
 	for _, e := range es {
-		apps, err := ConvertToApplication(e)
-		if err != nil {
+		if err := ConvertToApplication(e); err != nil {
 			return err
 		}
-		applications = append(applications, apps...)
 	}
-	for _, a := range applications {
-		err = IntoDB(a, collectionName)
+
+	for _, app := range VehicleApplications {
+		if err := IntoDB(app, collectionName); err != nil {
+			log.Println(err)
+		}
 	}
-	return err
+
+	return nil
 }
 
 //Csv to Struct
@@ -60,7 +66,6 @@ func CaptureCsv(filename string) ([]Input, error) {
 	}
 
 	reader := csv.NewReader(file)
-	reader.Comma = ';'
 
 	lines, err := reader.ReadAll()
 	if err != nil {
@@ -68,75 +73,77 @@ func CaptureCsv(filename string) ([]Input, error) {
 	}
 
 	for _, line := range lines {
-		e.Make = line[0]
-		e.Model = line[1]
-		e.Style = line[2]
-		e.YearRange = line[3]
-		e.Parts = line[4:reader.FieldsPerRecord]
+		if len(line) < 5 {
+			continue
+		}
+		e = Input{
+			Part:  strings.TrimSpace(line[0]),
+			Make:  strings.ToLower(strings.TrimSpace(line[1])),
+			Model: strings.ToLower(strings.TrimSpace(line[2])),
+			Style: strings.ToLower(strings.TrimSpace(line[3])),
+			Year:  strings.ToLower(strings.TrimSpace(line[5])),
+		}
+		line4 := strings.TrimSpace(line[4])
+		if line4 != "2&4WD" {
+			if e.Style != "" {
+				e.Style = fmt.Sprintf("%s %s", e.Style, line4)
+			} else {
+				e.Style = line4
+			}
+		}
+
 		es = append(es, e)
 	}
 	return es, nil
 }
 
 //Convert Input ot Applications array
-func ConvertToApplication(e Input) ([]Application, error) {
-	var err error
-	var app Application
-	var apps []Application
-	shortYears := strings.Split(e.YearRange, "-")
-	var longYear int
+func ConvertToApplication(e Input) error {
+	var partID int
 
-	db, err := sql.Open("mysql", database.ConnectionString())
-	if err != nil {
-		return apps, err
-	}
-	defer db.Close()
+	if partID = PartConversion[e.Part]; partID == 0 {
 
-	stmt, err := db.Prepare("select partID from Part where oldPartNumber = ?")
-	if err != nil {
-		return apps, err
-	}
-	defer stmt.Close()
-
-	for _, shortYear := range shortYears {
-		if utf8.RuneCountInString(shortYear) == 2 {
-			//add 19 or 20
-			shortYearInt, err := strconv.Atoi(shortYear)
-			if err != nil {
-				return apps, err
-			}
-			if shortYearInt >= 0 && shortYearInt < 16 {
-				longYear = 2000 + shortYearInt
-			} else {
-				longYear = 1900 + shortYearInt
-			}
-
-			for _, part := range e.Parts {
-				if part != "" && part != "-" && part != "--" {
-					//is there an old/new part number?
-					var num int
-					part = strings.TrimSpace(part)
-					err = stmt.QueryRow(part).Scan(&num)
-					if err == nil {
-						app.Part = num
-					} else {
-						app.Part, err = strconv.Atoi(part)
-						if err != nil {
-							//non-existent part
-							continue
-						}
-					}
-					app.Make = LowerInitial(e.Make)
-					app.Model = LowerInitial(e.Model)
-					app.Style = e.Style
-					app.Year = longYear
-					apps = append(apps, app)
-				}
-			}
-
+		db, err := sql.Open("mysql", database.ConnectionString())
+		if err != nil {
+			return err
 		}
+		defer db.Close()
+
+		stmt, err := db.Prepare("select partID from Part where oldPartNumber = ?")
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+
+		if err := stmt.QueryRow(e.Part).Scan(&partID); err != nil || partID == 0 {
+			return fmt.Errorf("invalid part: %s", e.Part)
+		}
+
+		PartConversion[e.Part] = partID
 	}
-	return apps, err
+
+	tmp := Application{
+		Parts: []int{partID},
+		Year:  e.Year,
+		Make:  e.Make,
+		Model: e.Model,
+		Style: e.Style,
+	}
+
+	idx := VehicleApplications[tmp.string()]
+	if idx.Year == "" {
+		VehicleApplications[tmp.string()] = tmp
+		return nil
+	}
+
+	idx.Parts = append(idx.Parts, partID)
+	VehicleApplications[tmp.string()] = idx
+
+	return nil
+}
+
+func (a *Application) string() string {
+	return fmt.Sprintf("%s%s%s%s", a.Year, a.Make, a.Model, a.Style)
 }
 
 //Dump into mongo
@@ -147,16 +154,5 @@ func IntoDB(app Application, collectionName string) error {
 	}
 	defer session.Close()
 
-	c := session.DB(database.MongoConnectionString().Database).C(collectionName)
-	err = c.Insert(app)
-	return err
-
-}
-
-//Proper capitalization
-func LowerInitial(str string) string {
-	for i, v := range str {
-		return string(unicode.ToUpper(v)) + strings.ToLower(str[i+1:])
-	}
-	return ""
+	return session.DB(database.MongoConnectionString().Database).C(collectionName).Insert(app)
 }

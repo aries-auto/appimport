@@ -17,9 +17,9 @@ func MongoConnectionString() *mgo.DialInfo {
 		addresses = strings.Split(hostString, ",")
 	}
 	info.Addrs = addresses
-	info.Username = os.Getenv("MONGO_USERNAME")
-	info.Password = os.Getenv("MONGO_PASSWORD")
-	info.Database = os.Getenv("MONGO_DATABASE")
+	info.Username = os.Getenv("MONGO_ARIES_USERNAME")
+	info.Password = os.Getenv("MONGO_ARIES_PASSWORD")
+	info.Database = os.Getenv("MONGO_ARIES_DATABASE")
 	info.Timeout = time.Second * 2
 	if info.Database == "" {
 		info.Database = "ariesimport"

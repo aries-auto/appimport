@@ -6,10 +6,6 @@ import (
 )
 
 func main() {
-	var err error
-	// err = importer.DoImport("csvs/exteriorsCompleteApp.csv", "exteriors")
-	// log.Print(err)
 
-	err = importer.DoImport("csvs/interiorsWIPfix.csv", "interiors")
-	log.Print(err)
+	log.Println(importer.DoImport("csvs/grille_guards.csv", "grille guards"))
 }
