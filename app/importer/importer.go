@@ -74,6 +74,7 @@ func CaptureCsv(filename string) ([]Input, error) {
 
 	for _, line := range lines {
 		if len(line) < 5 {
+			log.Println(line)
 			continue
 		}
 		e = Input{
@@ -81,15 +82,7 @@ func CaptureCsv(filename string) ([]Input, error) {
 			Make:  strings.ToLower(strings.TrimSpace(line[1])),
 			Model: strings.ToLower(strings.TrimSpace(line[2])),
 			Style: strings.ToLower(strings.TrimSpace(line[3])),
-			Year:  strings.ToLower(strings.TrimSpace(line[5])),
-		}
-		line4 := strings.TrimSpace(line[4])
-		if line4 != "2&4WD" {
-			if e.Style != "" {
-				e.Style = fmt.Sprintf("%s %s", e.Style, line4)
-			} else {
-				e.Style = line4
-			}
+			Year:  strings.ToLower(strings.TrimSpace(line[4])),
 		}
 
 		es = append(es, e)
