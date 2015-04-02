@@ -13,8 +13,12 @@ import (
 	"strings"
 )
 
-var VehicleApplications map[string]Application
-var PartConversion map[string]int
+var (
+	VehicleApplications map[string]Application
+	PartConversion      map[string]int
+	Session             *mgo.Session
+	inf                 = database.MongoConnectionString()
+)
 
 type Input struct {
 	Year  string
@@ -32,9 +36,10 @@ type Application struct {
 	Parts []int  `bson:"parts"`
 }
 
-func DoImport(filename string, collectionName string) error {
+func DoImport(filename string, collectionName string, sess *mgo.Session) error {
 	PartConversion = make(map[string]int, 0)
 	VehicleApplications = make(map[string]Application, 0)
+	Session = sess
 
 	es, err := CaptureCsv(filename)
 	if err != nil {
@@ -143,22 +148,22 @@ func (a *Application) string() string {
 
 //Dump into mongo
 func IntoDB(app Application, collectionName string) error {
-	session, err := mgo.DialWithInfo(database.MongoConnectionString())
-	if err != nil {
-		return err
-	}
-	defer session.Close()
+	// session, err := mgo.DialWithInfo(database.MongoConnectionString())
+	// if err != nil {
+	// 	return err
+	// }
+	// defer session.Close()
 
-	return session.DB(database.MongoConnectionString().Database).C(collectionName).Insert(app)
+	return Session.DB(database.MongoConnectionString().Database).C(collectionName).Insert(app)
 }
 
 func ClearCollection(name string) error {
-	inf := database.MongoConnectionString()
-	session, err := mgo.DialWithInfo(inf)
-	if err != nil {
-		return err
-	}
-	defer session.Close()
 
-	return session.DB(inf.Database).C(name).DropCollection()
+	// session, err := mgo.DialWithInfo(inf)
+	// if err != nil {
+	// 	return err
+	// }
+	// defer session.Close()
+
+	return Session.DB(inf.Database).C(name).DropCollection()
 }
