@@ -85,10 +85,10 @@ func CaptureCsv(filename string) ([]Input, error) {
 			continue
 		}
 		e = Input{
-			Part:  strings.TrimSpace(line[0]),
-			Make:  strings.ToLower(strings.TrimSpace(line[1])),
-			Model: strings.ToLower(strings.TrimSpace(line[2])),
-			Style: strings.ToLower(strings.TrimSpace(line[3])),
+			Make:  strings.ToLower(strings.TrimSpace(line[0])),
+			Model: strings.ToLower(strings.TrimSpace(line[1])),
+			Style: strings.ToLower(strings.TrimSpace(line[2])),
+			Part:  strings.TrimSpace(line[3]),
 			Year:  strings.ToLower(strings.TrimSpace(line[4])),
 		}
 
